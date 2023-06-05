@@ -9,16 +9,21 @@ if (!gl) {
 
 const vertexShaderSource = `#version 300 es
 
-// an attribute is an input (in) to a vertex shader.
-// It will receive data from a buffer
-in vec4 a_position;
+in vec2 a_position;
 
-// all shaders have a main function
+uniform vec2 u_resolution;
+
 void main() {
+  // convert the position from pixels to 0.0 to 1.0
+  vec2 zeroToOne = a_position / u_resolution;
 
-  // gl_Position is a special variable a vertex shader
-  // is responsible for setting
-  gl_Position = a_position;
+  // convert from 0->1 to 0->2
+  vec2 zeroToTwo = zeroToOne * 2.0;
+
+  // convert from 0->2 to -1->+1 (clip space)
+  vec2 clipSpace = zeroToTwo - 1.0;
+
+  gl_Position = vec4(clipSpace, 0, 1);
 }
 `;
 
@@ -79,12 +84,17 @@ function createProgram (gl, vertexShader, fragmentShader) {
 const program = createProgram(gl, vertexShader, fragmentShader);
 
 const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+const resolutionUniformLocation = gl.getUniformLocation(
+    program,
+    'u_resolution'
+);
+
 const positionBuffer = gl.createBuffer();
 
 gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
 
 // three 2d points
-const positions = [0, 0, 0, 0.5, 0.7, 0];
+const positions = [10, 20, 80, 20, 10, 30, 10, 30, 80, 20, 80, 30];
 gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
 
 const vao = gl.createVertexArray();
@@ -116,10 +126,14 @@ gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
 // Tell it to use our program (pair of shaders)
 gl.useProgram(program);
 
+// Pass in the canvas resolution so we can convert from
+// pixels to clip space in the shader
+gl.uniform2f(resolutionUniformLocation, gl.canvas.width, gl.canvas.height);
+
 // Bind the attribute/buffer set we want.
 gl.bindVertexArray(vao);
 
 const primitiveType = gl.TRIANGLES;
 const offset2 = 0;
-const count = 3;
+const count = 6;
 gl.drawArrays(primitiveType, offset2, count);
